@@ -15,13 +15,6 @@ CONN_STR = (
     "Trusted_Connection=yes;"
 )
 
-def get_stocks():
-    """從 stocks 資料表抓全部股票 id + stock_no"""
-    conn = pyodbc.connect(CONN_STR)
-    df = pd.read_sql("SELECT id, stock_no FROM dbo.stocks ORDER BY id", conn)
-    conn.close()
-    return df
-
 def clawer_quarterly_balance(stock_no):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -122,13 +115,13 @@ def build_quarterly_balance_df(assets_df, liabilities_df, equity_df) -> pd.DataF
     ]
 
 # 寫入 stock_quarterly_balance
-def insert_quarterly_balance_to_db(stock_id: int, df: pd.DataFrame):
+def insert_quarterly_balance_to_db(stock_no: str, df: pd.DataFrame):
     conn = pyodbc.connect(CONN_STR)
     cursor = conn.cursor()
 
     sql = """
     INSERT INTO dbo.stock_quarterly_balance (
-        stock_id,
+        stock_no,
         fiscal_year,
         fiscal_quarter,
         roc_year,
@@ -155,7 +148,7 @@ def insert_quarterly_balance_to_db(stock_id: int, df: pd.DataFrame):
 
     for _, row in df.iterrows():
         params = (
-            stock_id,
+            stock_no,
             int(row["fiscal_year"]),
             int(row["fiscal_quarter"]),
             int(row["roc_year"]),
@@ -166,19 +159,19 @@ def insert_quarterly_balance_to_db(stock_id: int, df: pd.DataFrame):
         try:
             cursor.execute(sql, params)
         except pyodbc.IntegrityError as ex:
-            print(f"  ⚠️ 重複略過 {stock_id} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
+            print(f"  ⚠️ 重複略過 {stock_no} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
         except Exception as ex:
-            print(f"  ❌ 寫入失敗 {stock_id} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
+            print(f"  ❌ 寫入失敗 {stock_no} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
 
     conn.commit()
     cursor.close()
     conn.close()
 
-def process_quarterly_balance_for_stock(stock_id, stock_no):
+def process_quarterly_balance_for_stock(stock_no):
     try:
         assets_df, liabilities_df, equity_df = clawer_quarterly_balance(stock_no)
         qb_df = build_quarterly_balance_df(assets_df, liabilities_df, equity_df)
-        insert_quarterly_balance_to_db(stock_id, qb_df)
+        insert_quarterly_balance_to_db(stock_no, qb_df)
         print(f"✅ 已將 {stock_no} 寫入 stock_quarterly_balance，共 {len(qb_df)} 筆")
     except Exception as ex:
         print(f"❌ {stock_no} 失敗：{ex}")

@@ -87,7 +87,7 @@ def transform_twse_stock_day_json(json_data: dict) -> pd.DataFrame:
 
     return df
 
-def insert_daily_quotes_to_db(stock_id: int, df: pd.DataFrame):
+def insert_daily_quotes_to_db(stock_no: str, df: pd.DataFrame):
     conn = pyodbc.connect(CONN_STR)
     cursor = conn.cursor()
 
@@ -108,7 +108,7 @@ def insert_daily_quotes_to_db(stock_id: int, df: pd.DataFrame):
 
     for _, row in df.iterrows():
         params = (
-            stock_id,
+            stock_no,
             row["trade_date"],
             row["last_price"],
             row["open_price"],
@@ -122,9 +122,9 @@ def insert_daily_quotes_to_db(stock_id: int, df: pd.DataFrame):
             cursor.execute(sql, params)
         except pyodbc.IntegrityError as ex:
             # 建議在 DB 上有 UNIQUE(stock_id, trade_date) 時，重複就會走這裡
-            print(f"⚠️ 重複略過 {stock_id} {row['trade_date']}: {ex}")
+            print(f"⚠️ 重複略過 {stock_no} {row['trade_date']}: {ex}")
         except Exception as ex:
-            print(f"❌ 寫入失敗 {stock_id} {row['trade_date']}: {ex}")
+            print(f"❌ 寫入失敗 {stock_no} {row['trade_date']}: {ex}")
 
     conn.commit()
     cursor.close()
@@ -148,13 +148,13 @@ def fetch_and_save_stock_month(stock_id: int, stock_no: str, yyyymm: str):
         return
 
     df = transform_twse_stock_day_json(json_data)
-    insert_daily_quotes_to_db(stock_id, df)
-    print(f"✅ 已寫入 {stock_no}（stock_id={stock_id}） {yyyymm} 共 {len(df)} 筆日行情")
+    insert_daily_quotes_to_db(stock_no, df)
+    print(f"✅ 已寫入 {stock_no} {yyyymm} 共 {len(df)} 筆日行情")
 
-def process_daily_quotes_for_stock(stock_id: int, stock_no: str):
+def process_daily_quotes_for_stock(stock_no: str):
     yyyymm_list = ["202511", "20251031", "20250930"]  # 最近三個月
     for yyyymm in yyyymm_list:
         try:
-            fetch_and_save_stock_month(stock_id, stock_no, yyyymm)
+            fetch_and_save_stock_month(stock_no, stock_no, yyyymm)
         except Exception as ex:
             print(f"❌ {stock_no} {yyyymm} 日成交資料失敗：{ex}")

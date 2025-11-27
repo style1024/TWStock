@@ -1,5 +1,7 @@
 import pandas as pd
 import pyodbc
+from sqlalchemy import create_engine
+import urllib
 import exceltosql
 import clawer_dividend as cd
 import clawer_monthly_revenue as cmr
@@ -14,12 +16,12 @@ CONN_STR = (
     "Trusted_Connection=yes;"
 )
 
-
+# 要將 ODBC 字串變成適用於 URL 的格式
+params = urllib.parse.quote_plus(CONN_STR)
+engine = create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
 
 def get_stocks():
-    conn = pyodbc.connect(CONN_STR)
-    df = pd.read_sql("SELECT id, stock_no FROM dbo.stocks ORDER BY id", conn)
-    conn.close()
+    df = pd.read_sql("SELECT stock_no, name FROM stocks ORDER BY stock_no", engine)
     return df
 
 def flatten_columns(df):
@@ -50,14 +52,13 @@ if __name__ == "__main__":
     df_stocks = get_stocks()
     for index, row in df_stocks.iterrows():
         stock_no = row["stock_no"]
-        stock_id = row["id"]
         # 爬取每支股票的股利資料
         cd.process_dividend_for_stock(stock_no)
         # 爬取每支股票的月營收資料
-        cmr.process_monthly_revenue_for_stock(stock_id, stock_no)
+        cmr.process_monthly_revenue_for_stock(stock_no)
         # 爬取每支股票的日成交資料
-        cdq.process_daily_quotes_for_stock(stock_id, stock_no)
+        cdq.process_daily_quotes_for_stock(stock_no)
         # 爬取每支股票的季報資料（資產負債表 + 綜合損益表）
-        cqb.process_quarterly_balance_for_stock(stock_id, stock_no)
+        cqb.process_quarterly_balance_for_stock(stock_no)
         # 爬取每支股票的季報資料（綜合損益表 + EPS
-        cqi.process_quarterly_income_for_stock(stock_id, stock_no)
+        cqi.process_quarterly_income_for_stock(stock_no)

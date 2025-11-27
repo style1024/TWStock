@@ -87,13 +87,13 @@ def flatten_columns(df):
     return df
 
 # 將清洗好的月營收資料寫入資料庫
-def insert_monthly_to_db(stock_id: int, df: pd.DataFrame):
+def insert_monthly_to_db(stock_no: str, df: pd.DataFrame):
     conn = pyodbc.connect(CONN_STR)
     cursor = conn.cursor()
 
     sql = """
     INSERT INTO dbo.stock_monthly_revenue (
-        stock_id,
+        stock_no,
         year,
         month,
         roc_year,
@@ -122,7 +122,7 @@ def insert_monthly_to_db(stock_id: int, df: pd.DataFrame):
 
     for _, row in df.iterrows():
         params = (
-            int(stock_id),
+            stock_no,
             int(row["year"]),
             int(row["month"]),
             int(row["roc_year"]),
@@ -137,12 +137,12 @@ def insert_monthly_to_db(stock_id: int, df: pd.DataFrame):
     cursor.close()
     conn.close()
 
-def process_monthly_revenue_for_stock(stock_id, stock_no):
+def process_monthly_revenue_for_stock(stock_no):
     try:
         df_cmr = clawer_monthly_revenue(stock_no)
         df_cmr = flatten_columns(df_cmr)
         df_clean  = transform_monthly_df(df_cmr)
-        insert_monthly_to_db(stock_id=stock_id, df=df_clean)
+        insert_monthly_to_db(stock_no=stock_no, df=df_clean)
         print(f"✅ 已將{stock_no}寫入 stock_monthly_revenue")
     except Exception as ex:
         print(f"❌ {stock_no} 月營收資料失敗：{ex}")

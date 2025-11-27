@@ -15,13 +15,6 @@ CONN_STR = (
     "Trusted_Connection=yes;"
 )
 
-def get_stocks():
-    """從 stocks 資料表抓全部股票 id + stock_no"""
-    conn = pyodbc.connect(CONN_STR)
-    df = pd.read_sql("SELECT id, stock_no FROM dbo.stocks ORDER BY id", conn)
-    conn.close()
-    return df
-
 def clawer_quarterly_income(stock_no):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -126,13 +119,13 @@ def build_quarterly_income_df(df_income: pd.DataFrame, df_eps: pd.DataFrame) -> 
 
     return df
 
-def insert_quarterly_income_to_db(stock_id: int, df: pd.DataFrame):
+def insert_quarterly_income_to_db(stock_no: str, df: pd.DataFrame):
     conn = pyodbc.connect(CONN_STR)
     cursor = conn.cursor()
 
     sql = """
     INSERT INTO dbo.stock_quarterly_income (
-        stock_id,
+        stock_no,
         fiscal_year,
         fiscal_quarter,
         roc_year,
@@ -162,7 +155,7 @@ def insert_quarterly_income_to_db(stock_id: int, df: pd.DataFrame):
 
     for _, row in df.iterrows():
         params = (
-            stock_id,
+            stock_no,
             int(row["fiscal_year"]),
             int(row["fiscal_quarter"]),
             int(row["roc_year"]),
@@ -176,19 +169,19 @@ def insert_quarterly_income_to_db(stock_id: int, df: pd.DataFrame):
         try:
             cursor.execute(sql, params)
         except pyodbc.IntegrityError as ex:
-                print(f"  ⚠️ 略過重複 {stock_id} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
+                print(f"  ⚠️ 略過重複 {stock_no} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
         except Exception as ex:
-            print(f"  ❌ 寫入失敗 {stock_id} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
+            print(f"  ❌ 寫入失敗 {stock_no} {row['fiscal_year']}Q{row['fiscal_quarter']}: {ex}")
 
     conn.commit()
     cursor.close()
     conn.close()
 
-def process_quarterly_income_for_stock(stock_id, stock_no):
+def process_quarterly_income_for_stock(stock_no):
     try:
         income_table, eps_table = clawer_quarterly_income(stock_no)
         qi_df = build_quarterly_income_df(income_table, eps_table)
-        insert_quarterly_income_to_db(stock_id, qi_df)
+        insert_quarterly_income_to_db(stock_no, qi_df)
         print(f"✅ 已將 {stock_no} 寫入 stock_quarterly_income，共 {len(qi_df)} 筆")
     except Exception as ex:
         print(f"❌ {stock_no} 失敗：{ex}")
