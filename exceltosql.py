@@ -4,13 +4,13 @@ import re
 
 # ======= 設定區 =======
 
-CSV_PATH = r"StockList.csv"  # TODO: 改成你實際的 csv 路徑
+CSV_PATH = r"StockList.csv" 
 
 CONN_STR = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=.\MSSQLSERVER_2021;"          # TODO: 改成你的 SQL Server 伺服器，例如 localhost\SQLEXPRESS
-    "DATABASE=Stock;"            # TODO: 改成你的資料庫名稱
-    "Trusted_Connection=yes;"    # 如果是 SQL 帳號登入就改成 UID/PWD
+    "SERVER=localhost;"          
+    "DATABASE=Stock;"            
+    "Trusted_Connection=yes;" 
 )
 
 # ======= 工具函式 =======
@@ -21,11 +21,9 @@ def clean_stock_no(x):
         return None
     s = str(x).strip()
 
-    # case 1: ="2330" → 2330
     if s.startswith('="') and s.endswith('"'):
         return s[2:-1]
 
-    # case 2: 一般情況 → 原樣保留
     return s
 
 def map_market(x):
@@ -100,7 +98,3 @@ def import_csv_to_stocks():
     conn.close()
 
     print(f"匯入完成，共寫入 {len(df_db)} 筆資料。")
-
-
-if __name__ == "__main__":
-    import_csv_to_stocks()

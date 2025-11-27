@@ -10,26 +10,19 @@ from datetime import datetime
 
 CONN_STR = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=.\MSSQLSERVER_2021;" 
+    "SERVER=localhost;" 
     "DATABASE=Stock;"
     "Trusted_Connection=yes;"
 )
 
-def get_stocks():
-    """從 stocks 資料表抓全部股票 id + stock_no"""
-    conn = pyodbc.connect(CONN_STR)
-    df = pd.read_sql("SELECT id, stock_no FROM dbo.stocks where id > '540' ORDER BY id", conn)
-    conn.close()
-    return df
-
-
-def clawer_monthly_revenue(stock_id):
+# 爬取月營收資料
+def clawer_monthly_revenue(stock_no):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     driver = webdriver.Chrome(service=Service(), options=chrome_options)
 
 
-    driver.get(f"https://www.cmoney.tw/forum/stock/{stock_id}?s=revenue")
+    driver.get(f"https://www.cmoney.tw/forum/stock/{stock_no}?s=revenue")
     time.sleep(5)
     # 點選按鈕
     button = driver.find_element(By.XPATH, '//*[@id="StockRevPanel"]/div[3]/div[2]/section/div/div[2]/div[3]/div')
@@ -44,6 +37,7 @@ def clawer_monthly_revenue(stock_id):
 
     return df
 
+# 重新整理並清洗月營收資料
 def transform_monthly_df(df: pd.DataFrame) -> pd.DataFrame:
     # 重新命名欄位成好用一點的英文
     df = df.rename(columns={
@@ -92,6 +86,7 @@ def flatten_columns(df):
         df.columns = ['_'.join([str(x) for x in col]).strip() for col in df.columns]
     return df
 
+# 將清洗好的月營收資料寫入資料庫
 def insert_monthly_to_db(stock_id: int, df: pd.DataFrame):
     conn = pyodbc.connect(CONN_STR)
     cursor = conn.cursor()
@@ -142,15 +137,12 @@ def insert_monthly_to_db(stock_id: int, df: pd.DataFrame):
     cursor.close()
     conn.close()
 
-if __name__ == "__main__":
-    stocks = get_stocks()
-    for _, row in stocks.iterrows():
-        stock_id = row["id"]
-        stock_no = row["stock_no"]
-
-        df = clawer_monthly_revenue(stock_no)
-        df = flatten_columns(df)
-        df_clean  = transform_monthly_df(df)
-
+def process_monthly_revenue_for_stock(stock_id, stock_no):
+    try:
+        df_cmr = clawer_monthly_revenue(stock_no)
+        df_cmr = flatten_columns(df_cmr)
+        df_clean  = transform_monthly_df(df_cmr)
         insert_monthly_to_db(stock_id=stock_id, df=df_clean)
         print(f"✅ 已將{stock_no}寫入 stock_monthly_revenue")
+    except Exception as ex:
+        print(f"❌ {stock_no} 月營收資料失敗：{ex}")

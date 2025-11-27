@@ -10,7 +10,7 @@ from datetime import datetime
 
 CONN_STR = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=.\MSSQLSERVER_2021;"      # 改成你的 SQL Server
+    "SERVER=localhost;"      # 改成你的 SQL Server
     "DATABASE=Stock;"
     "Trusted_Connection=yes;"
 )
@@ -174,22 +174,11 @@ def insert_quarterly_balance_to_db(stock_id: int, df: pd.DataFrame):
     cursor.close()
     conn.close()
 
-if __name__ == "__main__":
-    stocks = get_stocks()
-
-    for _, row in stocks.iterrows():
-        stock_id = row["id"]
-        stock_no = row["stock_no"]
-
-        print(f"====== 處理 {stock_no} (id={stock_id}) ======")
-
-        try:
-            assets_df, liabilities_df, equity_df = clawer_quarterly_balance(stock_no)
-            qb_df = build_quarterly_balance_df(assets_df, liabilities_df, equity_df)
-            insert_quarterly_balance_to_db(stock_id, qb_df)
-            print(f"✅ 已將 {stock_no} 寫入 stock_quarterly_balance，共 {len(qb_df)} 筆")
-        except Exception as ex:
-            print(f"❌ {stock_no} 失敗：{ex}")
-
-        # 稍微睡一下，避免被網站擋
-        time.sleep(2)
+def process_quarterly_balance_for_stock(stock_id, stock_no):
+    try:
+        assets_df, liabilities_df, equity_df = clawer_quarterly_balance(stock_no)
+        qb_df = build_quarterly_balance_df(assets_df, liabilities_df, equity_df)
+        insert_quarterly_balance_to_db(stock_id, qb_df)
+        print(f"✅ 已將 {stock_no} 寫入 stock_quarterly_balance，共 {len(qb_df)} 筆")
+    except Exception as ex:
+        print(f"❌ {stock_no} 失敗：{ex}")

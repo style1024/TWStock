@@ -3,4 +3,3 @@ requests
 beautifulsoup4
 selenium
 pyodbc
-FinMind

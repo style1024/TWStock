@@ -5,7 +5,7 @@ from datetime import date
 
 CONN_STR = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=.\\MSSQLSERVER_2021;"
+    "SERVER=localhost;"
     "DATABASE=Stock;"
     "Trusted_Connection=yes;"
 )
@@ -151,18 +151,10 @@ def fetch_and_save_stock_month(stock_id: int, stock_no: str, yyyymm: str):
     insert_daily_quotes_to_db(stock_id, df)
     print(f"✅ 已寫入 {stock_no}（stock_id={stock_id}） {yyyymm} 共 {len(df)} 筆日行情")
 
-def get_stocks():
-    conn = pyodbc.connect(CONN_STR)
-    df = pd.read_sql("SELECT id, stock_no FROM dbo.stocks ORDER BY id", conn)
-    conn.close()
-    return df
-
-if __name__ == "__main__":
-    stocks = get_stocks()
+def process_daily_quotes_for_stock(stock_id: int, stock_no: str):
     yyyymm_list = ["202511", "20251031", "20250930"]  # 最近三個月
-
-    for _, row in stocks.iterrows():
-        stock_id = row["id"]
-        stock_no = row["stock_no"]
-        for yyyymm in yyyymm_list:
+    for yyyymm in yyyymm_list:
+        try:
             fetch_and_save_stock_month(stock_id, stock_no, yyyymm)
+        except Exception as ex:
+            print(f"❌ {stock_no} {yyyymm} 日成交資料失敗：{ex}")
